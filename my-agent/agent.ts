@@ -1,29 +1,76 @@
-import { LlmAgent } from "@google/adk";
+import "dotenv/config";
+import { FunctionTool, LlmAgent } from "@google/adk";
+import { z } from "zod";
 
-export const rootAgent = new LlmAgent({
-  name: "test_agent",
-  model: "gemini-2.5-flash",
-  instruction: "You are a helpful assistant. Reply briefly.",
+const getCurrentTime = new FunctionTool({
+  name: "getCurrentTime",
+  description: "Returns the actual current time in a specified city",
+
+  parameters: z.object({
+    city: z.string().describe("City name"),
+  }),
+
+  execute: async ({ city }) => {
+    try {
+      console.log(`fetching time in city ${city}`);
+      const timezoneMap: Record<string, string> = {
+        hyderabad: "Asia/Kolkata",
+        bengaluru: "Asia/Kolkata",
+        bangalore: "Asia/Kolkata",
+        chennai: "Asia/Kolkata",
+        delhi: "Asia/Kolkata",
+        mumbai: "Asia/Kolkata",
+        london: "Europe/London",
+        paris: "Europe/Paris",
+        tokyo: "Asia/Tokyo",
+        newyork: "America/New_York",
+        dubai: "Asia/Dubai",
+      };
+
+      const key = city.toLowerCase().replace(/\s+/g, "");
+      const timezone = timezoneMap[key];
+      console.log(`Timezone: $${timezone}`);
+      if (!timezone) {
+        return `Sorry, I don't know the timezone for ${city}`;
+      }
+
+      const currentTime = new Intl.DateTimeFormat("en-IN", {
+        timeZone: timezone,
+        dateStyle: "full",
+        timeStyle: "long",
+      }).format(new Date());
+      console.log(`current time: ${currentTime}`);
+      return `Current time in ${city} is ${currentTime}`;
+    } catch (error) {
+      console.log(`Error Message: ${error?.message}`);
+      return `Failed to get time for ${city}`;
+    }
+  },
 });
 
+export const rootAgent = new LlmAgent({
+  name: "hello_time_agent",
+  model: "gemini-2.5-flash",
 
-// import {FunctionTool, LlmAgent} from "@google/adk";
-// import {z} from "zod";
+  instruction: `
+You are a helpful assistant.
 
-// const getCurrentTime = new FunctionTool({
-//     name: "getCurrentTime",
-//     description: "Returns current time in a specified city",
-//     parameters: z.object({city: z.string().describe("The name of the city for which to retrieve the current time")}),
-//     execute: ({city}) => {
-//         console.log(`Tool Called with city ${city}.`)
-//         return { status: "success", report: `the current time in the ${city} is 10:00 AM`}
-//     }
-// });
+IMPORTANT:
+If the user asks for current time, date, or timezone,
+you MUST use getCurrentTime tool.
+
+Do not guess.
+Do not answer from memory.
+Always call the tool first.
+`,
+
+  tools: [getCurrentTime],
+});
+
+// import { LlmAgent } from "@google/adk";
 
 // export const rootAgent = new LlmAgent({
-//     name: "hello_time_agent",
-//     model: "gemini-1.5-flash",
-//     description: "tells the current time is a specified city.",
-//     instruction: "you are a helpful assistant that tells the current time in a specified city. use the getCurrentTime Tool for this purpose",
-//     tools: [getCurrentTime]
+//   name: "test_agent",
+//   model: "gemini-2.5-flash",
+//   instruction: "You are a helpful assistant. Reply briefly.",
 // });
